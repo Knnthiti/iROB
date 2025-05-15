@@ -81,6 +81,14 @@ float iROB_Motor ::PID_Speed(float _Setpoint, float RPM, motor_Wheel _Wheel) {
 
   Proportional[_Wheel] = Error_Speed[_Wheel];
   Integnator[_Wheel] += Error_Speed[_Wheel];
+  if (Integnator[_Wheel] > 25000) {
+    Integnator[_Wheel] = 25000;
+  } else if (Integnator[_Wheel] < -25000) {
+    Integnator[_Wheel] = -25000;
+  }else if (_Setpoint == 0) {
+    Integnator[_Wheel] = 0;
+  }
+
   Derivative[_Wheel] = Error_Speed[_Wheel] - Past_Error[_Wheel];
 
   Past_Error[_Wheel] = Error_Speed[_Wheel];
@@ -93,9 +101,9 @@ float iROB_Motor ::PID_Speed(float _Setpoint, float RPM, motor_Wheel _Wheel) {
     Motor_feedback._PID[_Wheel] = -max_speed[_Wheel];
   }
 
-  if ((Motor_feedback._PID[_Wheel] < min_speed[_Wheel]) && (Motor_feedback._PID[_Wheel] > -min_speed[_Wheel])) {
-    Motor_feedback._PID[_Wheel] = 0;
-  }
+  // if ((Motor_feedback._PID[_Wheel] < min_speed[_Wheel]) && (Motor_feedback._PID[_Wheel] > (-min_speed[_Wheel]))) {
+  //   Motor_feedback._PID[_Wheel] = 0;
+  // }
 
   return Motor_feedback._PID[_Wheel];
 }

@@ -59,10 +59,15 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
 }
 
 void setup() {
-  iROB.Setup_PID_Wheel(1.0, 0.0, 0.1, 50, 300, iROB._LF);
-  iROB.Setup_PID_Wheel(1.0, 0.0, 0.1, 50, 300, iROB._LB);
-  iROB.Setup_PID_Wheel(1.0, 0.0, 0.1, 50, 300, iROB._RF);
-  iROB.Setup_PID_Wheel(1.0, 0.0, 0.1, 50, 300, iROB._RB);
+  // iROB.Setup_PID_Wheel(2.5, 0.0, 0.1, 50, 300, iROB._LF);
+  // iROB.Setup_PID_Wheel(2.5, 0.0, 0.1, 50, 300, iROB._LB);
+  // iROB.Setup_PID_Wheel(2.5, 0.0, 0.4, 50, 300, iROB._RF);
+  // iROB.Setup_PID_Wheel(2.5, 0.0, 0.1, 50, 300, iROB._RB);
+
+  iROB.Setup_PID_Wheel(1.5, 0.01, 0.1, 100, 300, iROB._LF);
+  iROB.Setup_PID_Wheel(1.5, 0.01, 0.1, 100, 300, iROB._LB);
+  iROB.Setup_PID_Wheel(1.5, 0.01, 0.1, 100, 300, iROB._RF);
+  iROB.Setup_PID_Wheel(1.5, 0.01, 0.1, 100, 300, iROB._RB);  
 
   Serial.begin(115200);
 
@@ -90,7 +95,7 @@ void loop() {
 
   if ((millis() - Past_time) > 10) {
     Past_time = millis();
-    Vx = iROB._map(Data.stickValue[0], 100.0f, -100.0f, 5.0f, -5.0f);
+    Vx = iROB._map(Data.stickValue[0], 100.0f, -100.0f, -5.0f, 5.0f);
     Vy = iROB._map(Data.stickValue[1], 100.0f, -100.0f, 5.0f, -5.0f);
     Vz = iROB._map(Data.stickValue[3], 100.0f, -100.0f, -6.0f, 6.0f);
 
@@ -107,20 +112,25 @@ void loop() {
     // PID[1] = iROB.Motor_Speed_LB(250, iROB.getRPM(iROB._LB));
     // PID[2] = iROB.Motor_Speed_RF(250, iROB.getRPM(iROB._RF));
     // PID[3] = iROB.Motor_Speed_RB(250, iROB.getRPM(iROB._RB));
+////////////////////////////////////////////////////////////////////////////////////////////
+    // iROB.Motor_DutyCycle_LF(-4000);
+    // iROB.Motor_DutyCycle_LB(-4000);
+    // iROB.Motor_DutyCycle_RF(-4000);
+    // iROB.Motor_DutyCycle_RB(-4000);
 
-    // iROB.Motor_DutyCycle_LF(-1500);
-    // iROB.Motor_DutyCycle_LB(-1500);
-    // iROB.Motor_DutyCycle_RF(-1500);
-    // iROB.Motor_DutyCycle_RB(-1500);
-
-    Serial.print(PID[0]);
-    Serial.print(" , ");
-    Serial.print(PID[1]);
-    Serial.print(" , ");
-    Serial.print(PID[2]);
-    Serial.print(" , ");
-    Serial.print(PID[3]);
-    Serial.print("  |  ");
+    // iROB.getRPM(iROB._LF);
+    // iROB.getRPM(iROB._LB);
+    // iROB.getRPM(iROB._RF);
+    // iROB.getRPM(iROB._RB);
+/////////////////////////////////////////////////////////////////////////////////////////
+    // Serial.print(PID[0]);
+    // Serial.print(" , ");
+    // Serial.print(PID[1]);
+    // Serial.print(" , ");
+    // Serial.print(PID[2]);
+    // Serial.print(" , ");
+    // Serial.print(PID[3]);
+    // Serial.print("  |  ");
 
     Serial.print(iROB.Motor_feedback._RPM[0]);
     Serial.print(" , ");
