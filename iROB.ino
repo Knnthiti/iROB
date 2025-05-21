@@ -59,17 +59,13 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
 }
 
 void setup() {
-  // iROB.Setup_PID_Wheel(2.5, 0.0, 0.1, 50, 300, iROB._LF);
-  // iROB.Setup_PID_Wheel(2.5, 0.0, 0.1, 50, 300, iROB._LB);
-  // iROB.Setup_PID_Wheel(2.5, 0.0, 0.4, 50, 300, iROB._RF);
-  // iROB.Setup_PID_Wheel(2.5, 0.0, 0.1, 50, 300, iROB._RB);
-
   iROB.Setup_PID_Wheel(1.5, 0.01, 0.1, 100, 300, iROB._LF);
   iROB.Setup_PID_Wheel(1.5, 0.01, 0.1, 100, 300, iROB._LB);
   iROB.Setup_PID_Wheel(1.5, 0.01, 0.1, 100, 300, iROB._RF);
   iROB.Setup_PID_Wheel(1.5, 0.01, 0.1, 100, 300, iROB._RB);  
 
   Serial.begin(115200);
+  pinMode(2 ,OUTPUT);
 
   ROBOT.Setup_receive_ESPNOW();
   // Register callback function
@@ -78,6 +74,8 @@ void setup() {
 
 void loop() {
   if ((newData == 0) && (millis() - Uart_data_time > 500)) {
+    digitalWrite(2 ,0);
+
     iROB.Motor_DutyCycle_LF(0);
     iROB.Motor_DutyCycle_LB(0);
     iROB.Motor_DutyCycle_RF(0);
@@ -91,6 +89,7 @@ void loop() {
     Rad = 0;
   } else if (newData == 1) {
     newData = 0;
+    digitalWrite(2 ,1);
   }
 
   if ((millis() - Past_time) > 10) {
