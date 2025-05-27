@@ -107,20 +107,21 @@ void loop() {
     PID[2] = iROB.Motor_Speed_RF(iROB.getRad_s_to_RPM(_Kinematic.Wheel.w_RF), iROB.getRPM(iROB._RF));
     PID[3] = iROB.Motor_Speed_RB(iROB.getRad_s_to_RPM(_Kinematic.Wheel.w_RB), iROB.getRPM(iROB._RB));
 
-    // PID[0] = iROB.Motor_Speed_LF(250, iROB.getRPM(iROB._LF));
-    // PID[1] = iROB.Motor_Speed_LB(250, iROB.getRPM(iROB._LB));
-    // PID[2] = iROB.Motor_Speed_RF(250, iROB.getRPM(iROB._RF));
-    // PID[3] = iROB.Motor_Speed_RB(250, iROB.getRPM(iROB._RB));
-////////////////////////////////////////////////////////////////////////////////////////////
-    // iROB.Motor_DutyCycle_LF(-4000);
+    PID[0] = iROB.Motor_Speed_LF(250, iROB.getRPM(iROB._LF));
+    PID[1] = iROB.Motor_Speed_LB(250, iROB.getRPM(iROB._LB));
+    PID[2] = iROB.Motor_Speed_RF(250, iROB.getRPM(iROB._RF));
+    PID[3] = iROB.Motor_Speed_RB(250, iROB.getRPM(iROB._RB));
+/////////////////////////////////////////Test motor////////////////////////////////////////////////
+    // iROB.Motor_DutyCycle_LF(4000);
     // iROB.Motor_DutyCycle_LB(-4000);
-    // iROB.Motor_DutyCycle_RF(-4000);
-    // iROB.Motor_DutyCycle_RB(-4000);
+    // iROB.Motor_DutyCycle_RF(2000);
+    // iROB.Motor_DutyCycle_RB(-2000);
 
     // iROB.getRPM(iROB._LF);
     // iROB.getRPM(iROB._LB);
     // iROB.getRPM(iROB._RF);
     // iROB.getRPM(iROB._RB);
+
 /////////////////////////////////////////////////////////////////////////////////////////
     // Serial.print(PID[0]);
     // Serial.print(" , ");
@@ -131,12 +132,12 @@ void loop() {
     // Serial.print(PID[3]);
     // Serial.print("  |  ");
 
-    Serial.print(iROB.Motor_feedback._RPM[0]);
-    Serial.print(" , ");
-    Serial.print(iROB.Motor_feedback._RPM[1]);
-    Serial.print(" , ");
-    Serial.print(iROB.Motor_feedback._RPM[2]);
-    Serial.print(" , ");
-    Serial.println(iROB.Motor_feedback._RPM[3]);
+    // Serial.print(iROB.Motor_feedback._RPM[0]);
+    // Serial.print(" , ");
+    // Serial.print(iROB.Motor_feedback._RPM[1]);
+    // Serial.print(" , ");
+    // Serial.print(iROB.Motor_feedback._RPM[2]);
+    // Serial.print(" , ");
+    // Serial.println(iROB.Motor_feedback._RPM[3]);
   }
 }
