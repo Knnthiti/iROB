@@ -187,3 +187,37 @@ float iROB_Motor ::getRad_s_to_RPM(float Rad_s){
 
 	return RPM__;
 }
+/////////////////////////////////////////////////////////Ramp////////////////////////////////////////////////////////////////
+float _max_Count;
+
+float Count_to_degree(int32_t Count){
+	return (Count * (360.0f/_max_Count));
+}
+
+float Degree_to_Count(float Degree){
+	return (Degree * (_max_Count/360.0f));
+}
+
+void iROB_Motor ::Setup_Ramp_Count(float Kp_Count ,float Ki_Count ,float Kd_Count,float max_Count ,float DutyCycle_MAX){
+	_Kp_degree = Kp_Count;
+	_Ki_degree = Ki_Count;
+	_Kd_degree = Kd_Count;
+	_max_Count = max_Count;
+	_DutyCycle_MAX = DutyCycle_MAX;
+}
+
+int16_t iROB_Motor ::Ramp_Count(float Set_degree ,float degree){
+	Error_degree = Set_degree - degree;
+	Proportiona_degree = Error_degree;
+	Integnator_degree += Error_degree;
+	Derivative_degree = Error_degree - Past_Error_degree;
+
+	Past_Error_degree = Error_degree;
+
+	_V_degree = (Proportiona_degree * _Kp_degree) + (Integnator_degree * _Ki_degree) + (Derivative_degree * _Kd_degree);
+
+	_DutyCycle = Degree_to_Count(_V_degree) * (_DutyCycle_MAX/_max_Count);
+	return _DutyCycle;
+}
+
+/////////////////////////////////////////////////////////Ramp////////////////////////////////////////////////////////////////

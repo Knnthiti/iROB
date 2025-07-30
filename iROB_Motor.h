@@ -2,6 +2,17 @@
 #include <esp32-hal-ledc.h>
 #include <Arduino.h>
 
+enum motor_Wheel {
+  _LF = 0,
+  _LB = 1,
+  _RF = 2,
+  _RB = 3
+};
+
+extern float _max_Count;
+float Count_to_degree(int32_t Count);
+float Degree_to_Count(float Degree);
+
 class iROB_Motor {
 public:
   enum Pin_On_brad {
@@ -23,12 +34,12 @@ public:
     M_RB_IN1 = 4
   } iROB_Pin;
 
-  enum motor_Wheel {
-    _LF = 0,
-    _LB = 1,
-    _RF = 2,
-    _RB = 3
-  } _Wheel;
+  // enum motor_Wheel {
+  //   _LF = 0,
+  //   _LB = 1,
+  //   _RF = 2,
+  //   _RB = 3
+  // } _Wheel;
 
   ESP32Encoder enc_m1;
   ESP32Encoder enc_m2;
@@ -149,4 +160,26 @@ public:
 
   float getRPM_to_Rad_s(float RPM);
   float getRad_s_to_RPM(float Rad_s);
+
+  ////////////////////////////////////////////////////Ramp/////////////////////////////////////////////////////////////
+  float _V_degree = 0.0f;
+  int16_t _DutyCycle = 0;
+
+  float _Kp_degree;
+  float _Ki_degree;
+  float _Kd_degree;
+  
+  float _DutyCycle_MAX;
+
+  float Error_degree = 0.0f;
+  float Proportiona_degree = 0.0f;
+  float Integnator_degree = 0.0f;
+  float Derivative_degree = 0.0f;
+  float Past_Error_degree = 0.0f;
+
+  void Setup_Ramp_Count(float Kp_Count, float Ki_Count, float Kd_Count, float max_Count, float DutyCycle_MAX);
+  // float Count_to_degree(int32_t Count);
+  // float Degree_to_Count(float Degree);
+  int16_t Ramp_Count(float Set_degree, float degree);
+  ////////////////////////////////////////////////////Ramp/////////////////////////////////////////////////////////////
 };
