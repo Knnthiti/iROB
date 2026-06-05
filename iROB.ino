@@ -107,9 +107,9 @@ void loop() {
   if ((millis() - Past_time) > 10) {
     Past_time = millis();
 
-    Vx = iROB._map(Data.stickValue[0], 100.0f, -100.0f, -5.0f, 5.0f);
-    Vy = iROB._map(Data.stickValue[1], 100.0f, -100.0f, -5.0f, 5.0f);
-    Vz = iROB._map(Data.stickValue[3], 100.0f, -100.0f, -6.0f, 6.0f);
+    Vx = iROB._map(Data.stickValue[0], 100.0f, -100.0f, -2.5f, 2.5f);
+    Vy = iROB._map(Data.stickValue[1], 100.0f, -100.0f, -2.5f, 2.5f);
+    Vz = iROB._map(Data.stickValue[3], 100.0f, -100.0f, -3.0f, 3.0f);
 
     // _MPU6050.Radian();
 
