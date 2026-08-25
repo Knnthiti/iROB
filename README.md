@@ -13,6 +13,7 @@
 ## Sketch ใน Project
 
 - `Project/iROB_motor/iROB_motor.ino` - ตัวอย่างสั่ง motor แบบ duty cycle โดยเริ่มจาก `iROB.Motor_DutyCycle_LF(0);` และมีตัวอย่างทดสอบทั้ง 4 ล้อใน `loop()`
+- `Project/iROB_encoder/iROB_encoder.ino` - ตัวอย่างอ่าน encoder ล้อ LF โดยใช้ `iROB.getCount(LF);`
 - `Project/iROB_PID/iROB_PID.ino` - ตัวอย่าง PID speed motor LF โดยใช้ `iROB.Motor_Speed_LF(iROB.getRad_s_to_RPM(_Kinematic.Wheel.w_LF), iROB.getRPM(_LF));`
 - `Project/iROB_espnow/iROB_espnow.ino` - ตัวอย่างรับข้อมูล ESP-NOW โดยใช้ `esp_now_register_recv_cb(OnDataRecv);`
 - `Project/iROB/iROB.ino` - Run All: รับ joystick ผ่าน ESP-NOW, คำนวณ inverse kinematics, สั่ง PID ทั้ง 4 ล้อ และหยุดมอเตอร์เมื่อสัญญาณขาด
