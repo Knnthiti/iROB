@@ -7,18 +7,24 @@
 
 iROB_Motor iROB(100, 68, 27);
 
-// Alias for the LF wheel so the example can call iROB.getCount(LF).
-const motor_Wheel LF = _LF;
-
 void setup() {
   Serial.begin(115200);
 }
 
 void loop() {
-  int16_t countLF = iROB.getCount(LF);
+  iROB.Motor_DutyCycle_LF(4095);
+  iROB.Motor_DutyCycle_LB(4095);
+  iROB.Motor_DutyCycle_RF(4095);
+  iROB.Motor_DutyCycle_RB(4095);
 
   Serial.print("Count_LF: ");
-  Serial.println(countLF);
+  Serial.print(iROB.getCount(_LF));
+  Serial.print("| Count_LB: ");
+  Serial.print(iROB.getCount(_LB));
+  Serial.print("| Count_RF: ");
+  Serial.print(iROB.getCount(_RF));
+  Serial.print("| Count_RB: ");
+  Serial.println(iROB.getCount(_RB));
 
-  delay(100);
+  delay(10);
 }
