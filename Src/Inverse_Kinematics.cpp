@@ -1,6 +1,8 @@
-#include "Inverse_Kinematics.h"
+#include "../Inc/Inverse_Kinematics.h"
 
 void Kinematic::Inverse_Kinematic(float Vx, float Vy, float wz) {
+  // Mecanum inverse kinematics:
+  // Vx is forward/back, Vy is left/right strafe, and wz is yaw rate.
   Wheel.w_LF = (Vx - Vy - (Lx_ + Ly_) * wz) / Radius_wheel_;
   Wheel.w_RF = -(Vx + Vy + (Lx_ + Ly_) * wz) / Radius_wheel_;
   Wheel.w_LB = (Vx + Vy - (Lx_ + Ly_) * wz) / Radius_wheel_;
@@ -8,6 +10,8 @@ void Kinematic::Inverse_Kinematic(float Vx, float Vy, float wz) {
 }
 
 void Kinematic::Inverse_Kinematic_Lock_Direction(float Vx, float Vy, float wz, float head_ing) {
+  // Rotate the translation vector by current heading so movement remains
+  // locked to the field/world direction instead of robot direction.
   _r = (float)(sqrt((Vx * Vx) + (Vy * Vy)));
   _Rad_s = (float)(atan2(Vy, Vx)) - head_ing;
 
