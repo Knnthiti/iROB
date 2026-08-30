@@ -19,9 +19,9 @@ void setup() {
 
 void loop() {
   // Test all motors in reverse at full duty cycle. Change to 0 to stop.
-  iROB.Motor_DutyCycle_LF(-4095);
+  iROB.Motor_DutyCycle_LF(4095);
   iROB.Motor_DutyCycle_LB(-4095);
-  iROB.Motor_DutyCycle_RF(-4095);
-  iROB.Motor_DutyCycle_RB(-4095);
+  iROB.Motor_DutyCycle_RF(2095);
+  iROB.Motor_DutyCycle_RB(-2095);
   delay(10);
 }
