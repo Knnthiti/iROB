@@ -23,6 +23,19 @@ ESP32 จะส่ง UDP packet ทุก `10 ms` หรือประมา�
 
 เปิดไฟล์ `arduino/iROB_ros/iROB_ros.ino` ด้วย Arduino IDE แล้ว upload ลง ESP32
 
+โฟลเดอร์ `arduino/iROB_ros/` ต้องมีไฟล์เหล่านี้อยู่ด้วย เพื่อให้ Arduino IDE compile ได้:
+
+```text
+arduino/iROB_ros/
+├── iROB_ros.ino
+├── Inc/
+│   ├── iROB_Motor.h
+│   └── MPU6050_E12.h
+└── src/
+    ├── iROB_Motor.cpp
+    └── MPU6050_E12.cpp
+```
+
 ค่า WiFi เริ่มต้น:
 
 - ESP32 join WiFi SSID `ABU_robot2027`
