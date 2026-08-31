@@ -1,48 +1,57 @@
 # irob_ros
 
-ROS2 Humble package for receiving iROB ESP32 WiFi packets and publishing them to `iROB_controller`.
+แพ็กเกจ ROS2 Humble สำหรับรับ packet จาก ESP32 ผ่าน WiFi/UDP แล้ว publish ข้อมูลไปที่ topic `iROB_controller`
 
 ## Protocol
 
-The ESP32 sends one UDP packet every 10 ms on port `6767`. The packet is 32 bytes and matches the TX layout from `app_ros_comm.ino`:
+ESP32 จะส่ง UDP packet ทุก `10 ms` หรือประมาณ `100 Hz` ผ่าน port `6767` ขนาด packet คือ `32 bytes` และจัดวางข้อมูลให้ตรงกับส่วน TX ของ `app_ros_comm.ino`
 
-| Bytes | Field | Type |
-| --- | --- | --- |
-| 0-1 | `JB` header | `uint8[2]` |
-| 2 | `cmd_data_mcu` | `uint8` |
-| 3-10 | `motor1_fb..motor4_fb` | `int16[4]` |
-| 11-12 | `mouse_x_vel`, `mouse_y_vel` | `int8[2]` |
-| 13-18 | `gyro_x_raw..gyro_z_raw` | `int16[3]` |
-| 19-24 | `mag_x_raw..mag_z_raw` | `int16[3]` |
-| 25-30 | `acc_x_raw..acc_z_raw` | `int16[3]` |
-| 31 | `cks` | XOR checksum |
+| Bytes | Field | Type | ความหมาย |
+| --- | --- | --- | --- |
+| 0-1 | `JB` header | `uint8[2]` | header ของ packet |
+| 2 | `cmd_data_mcu` | `uint8` | status/command reply จาก ESP32 |
+| 3-10 | `motor1_fb..motor4_fb` | `int16[4]` | feedback ความเร็วมอเตอร์ |
+| 11-12 | `mouse_x_vel`, `mouse_y_vel` | `int8[2]` | ความเร็วจาก mouse/optical flow ถ้ามี |
+| 13-18 | `gyro_x_raw..gyro_z_raw` | `int16[3]` | ค่า gyro raw |
+| 19-24 | `mag_x_raw..mag_z_raw` | `int16[3]` | ค่า magnetometer raw |
+| 25-30 | `acc_x_raw..acc_z_raw` | `int16[3]` | ค่า accelerometer raw |
+| 31 | `cks` | `uint8` | XOR checksum |
 
-Wheel order follows the original packet: LF, LB, RB, RF.
+ลำดับล้อใน packet คือ `LF`, `LB`, `RB`, `RF` ตาม protocol เดิม
 
 ## ESP32
 
-Open `arduino/iROB_ros/iROB_ros.ino` in Arduino IDE and upload it to the ESP32.
+เปิดไฟล์ `arduino/iROB_ros/iROB_ros.ino` ด้วย Arduino IDE แล้ว upload ลง ESP32
 
-Default WiFi behavior:
+ค่า WiFi เริ่มต้น:
 
-- ESP32 joins WiFi SSID `ABU_robot2027`
-- Password is `ABU_robot67`
-- ESP32 gets its IP from the router/DHCP by default
-- ESP32 broadcasts UDP packets to `192.168.1.255:6767`
+- ESP32 join WiFi SSID `ABU_robot2027`
+- Password คือ `ABU_robot67`
+- ESP32 รับ IP จาก router/DHCP เป็นค่าเริ่มต้น
+- ESP32 broadcast UDP packet ไปที่ `192.168.1.255:6767`
 
-Connect both the ESP32 and ROS2 computer to `ABU_robot2027`, then run the ROS2 node.
+ให้ ESP32 และคอมพิวเตอร์ที่รัน ROS2 ต่อ WiFi วงเดียวกันคือ `ABU_robot2027`
 
-The ESP32 prints its assigned IP in Serial Monitor:
+หลัง upload แล้วเปิด Serial Monitor ที่ `115200` เพื่อดู IP ของ ESP32:
 
 ```text
 ESP32 IP: 192.168.1.xxx
 ```
 
-To force a fixed ESP32 IP, set `IROB_WIFI_USE_STATIC_STA_IP` to `1` in the sketch and edit `IROB_STA_LOCAL_IP`.
+ถ้าต้องการ fix IP ของ ESP32 ให้แก้ใน sketch:
 
-## ROS2 Project Usage
+```cpp
+#define IROB_WIFI_USE_STATIC_STA_IP 1
+static const IPAddress IROB_STA_LOCAL_IP(192, 168, 1, 68);
+```
 
-This package is a normal ROS2 Humble package. Put it inside the `src` folder of a ROS2 workspace:
+ถ้า broadcast ใช้ไม่ได้ ให้แก้ `ROS2_NODE_IP` ใน sketch เป็น IP ของคอม ROS2 โดยตรง
+
+## การใช้งาน ROS2 Project
+
+แพ็กเกจนี้เป็น ROS2 Humble package ปกติ ให้วางไว้ในโฟลเดอร์ `src` ของ ROS2 workspace
+
+ตัวอย่างสร้าง workspace:
 
 ```bash
 mkdir -p ~/irob_ws/src
@@ -50,7 +59,7 @@ cp -r irob_ros ~/irob_ws/src/
 cd ~/irob_ws
 ```
 
-Build the package:
+build package:
 
 ```bash
 source /opt/ros/humble/setup.bash
@@ -58,55 +67,55 @@ colcon build --packages-select irob_ros
 source install/setup.bash
 ```
 
-Run the UDP bridge node:
+run node รับ UDP จาก ESP32:
 
 ```bash
 ros2 run irob_ros iROB_ESP
 ```
 
-The node listens for ESP32 UDP packets on port `6767` and publishes decoded data to:
+node นี้จะ listen UDP ที่ port `6767` แล้ว publish ข้อมูลที่ decode แล้วไปที่:
 
 ```text
 /iROB_controller
 ```
 
-The topic type is:
+ชนิดของ topic คือ:
 
 ```text
 irob_ros/msg/IROBController
 ```
 
-Check that the topic exists:
+ตรวจสอบว่า topic ถูกสร้างหรือยัง:
 
 ```bash
 ros2 topic list
 ros2 topic info /iROB_controller
 ```
 
-Echo live robot data:
+ดูข้อมูลจริงจาก ESP32:
 
 ```bash
 ros2 topic echo /iROB_controller
 ```
 
-Show the message definition:
+ดูโครงสร้าง message:
 
 ```bash
 ros2 interface show irob_ros/msg/IROBController
 ```
 
-Use another UDP port if needed. The ESP32 sketch and ROS2 node must use the same port:
+ถ้าต้องการใช้ UDP port อื่น ให้ตั้ง port ฝั่ง ESP32 และ ROS2 node ให้ตรงกัน:
 
 ```bash
 IROB_UDP_PORT=6768 ros2 run irob_ros iROB_ESP
 ```
 
-## ROS2 Run Order
+## ลำดับการ Run
 
-1. Connect the ROS2 computer to WiFi `ABU_robot2027`.
-2. Upload and start `arduino/iROB_ros/iROB_ros.ino` on the ESP32.
-3. Open Serial Monitor at `115200` and confirm the ESP32 prints its IP.
-4. Source and run the ROS2 node:
+1. ต่อคอมพิวเตอร์ ROS2 เข้ากับ WiFi `ABU_robot2027`
+2. Upload และเริ่มรัน `arduino/iROB_ros/iROB_ros.ino` บน ESP32
+3. เปิด Serial Monitor ที่ `115200` แล้วดูว่า ESP32 ได้ IP แล้ว
+4. เปิด terminal แล้ว run ROS2 node:
 
 ```bash
 cd ~/irob_ws
@@ -115,7 +124,7 @@ source install/setup.bash
 ros2 run irob_ros iROB_ESP
 ```
 
-5. In another terminal, check the topic:
+5. เปิดอีก terminal เพื่อดูข้อมูลจาก topic:
 
 ```bash
 cd ~/irob_ws
@@ -126,16 +135,16 @@ ros2 topic echo /iROB_controller
 
 ## Troubleshooting
 
-If `/iROB_controller` does not update:
+ถ้า `/iROB_controller` ไม่มีข้อมูลหรือไม่ update:
 
-- Confirm the ESP32 and ROS2 computer are on the same WiFi network.
-- Confirm the ESP32 Serial Monitor shows `Sending UDP packets to 192.168.1.255:6767`.
-- Confirm the ROS2 node prints `iROB_ESP listening on UDP 0.0.0.0:6767`.
-- Check that firewall rules allow incoming UDP traffic on port `6767`.
-- Make sure the ESP32 `IROB_UDP_PORT` value matches the ROS2 node port.
-- If broadcast does not work on the network, set `ROS2_NODE_IP` in the ESP32 sketch to the ROS2 computer IP.
+- เช็คว่า ESP32 และคอมพิวเตอร์ ROS2 อยู่ WiFi วงเดียวกัน
+- เช็ค Serial Monitor ของ ESP32 ต้องเห็น `Sending UDP packets to 192.168.1.255:6767`
+- เช็ค terminal ฝั่ง ROS2 ต้องเห็น `iROB_ESP listening on UDP 0.0.0.0:6767`
+- เช็ค firewall ว่าอนุญาต incoming UDP port `6767`
+- เช็คว่า `IROB_UDP_PORT` ใน ESP32 ตรงกับ port ของ ROS2 node
+- ถ้า network ไม่รับ broadcast ให้ตั้ง `ROS2_NODE_IP` เป็น IP ของคอม ROS2 โดยตรง
 
-If `ros2 run irob_ros iROB_ESP` cannot find the executable:
+ถ้า `ros2 run irob_ros iROB_ESP` หา executable ไม่เจอ ให้ build และ source workspace ใหม่:
 
 ```bash
 cd ~/irob_ws
