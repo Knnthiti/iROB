@@ -5,12 +5,10 @@
 #include <WiFi.h>
 #include <WiFiUdp.h>
 
-#include "../../../Inc/iROB_Motor.h"
-#include "../../../Inc/MPU6050_E12.h"
+#include "Inc/iROB_Motor.h"
+#include "Inc/MPU6050_E12.h"
 
-// Arduino IDE builds this sketch folder, so include the project implementations here too.
-#include "../../../Src/iROB_Motor.cpp"
-#include "../../../Src/MPU6050_E12.cpp"
+// The matching .cpp files are kept in this sketch folder's src/ directory.
 
 // Credentials for the existing WiFi network that the ESP32 will join.
 static const char *IROB_WIFI_SSID = "ABU_robot2027";
