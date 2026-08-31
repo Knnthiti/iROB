@@ -1,38 +1,46 @@
-// ESP32 sketch for sending iROB feedback data to a ROS2 computer over WiFi.
+// ESP32 STA sketch for sending iROB feedback data to a ROS2 computer over WiFi.
 // The UDP packet layout is kept compatible with the TX packet from app_ros_comm.ino.
 
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
 
-// 1 = ESP32 creates its own WiFi access point.
-// 0 = ESP32 joins an existing WiFi network as a station.
-#define IROB_WIFI_AP_MODE 1
+#include "../../../Inc/iROB_Motor.h"
+#include "../../../Inc/MPU6050_E12.h"
 
-// WiFi credentials requested for the robot link.
+// Arduino IDE builds this sketch folder, so include the project implementations here too.
+#include "../../../Src/iROB_Motor.cpp"
+#include "../../../Src/MPU6050_E12.cpp"
+
+// Credentials for the existing WiFi network that the ESP32 will join.
 static const char *IROB_WIFI_SSID = "ABU_robot2027";
 static const char *IROB_WIFI_PASSWORD = "ABU_robot67";
 
-// Access point network settings.
-// In AP mode this is the ESP32 address, so the ROS2 computer should join this AP.
-static const IPAddress IROB_AP_IP(192, 168, 1, 67);
-static const IPAddress IROB_AP_GATEWAY(192, 168, 1, 67);
-static const IPAddress IROB_AP_SUBNET(255, 255, 255, 0);
-
-// Optional static IP settings for station mode.
-// Keep this disabled unless the existing network needs a fixed ESP32 address.
+// Optional static IP settings for STA mode.
+// 0 = ESP32 gets its IP from DHCP.
+// 1 = ESP32 uses IROB_STA_LOCAL_IP below.
 #define IROB_WIFI_USE_STATIC_STA_IP 0
 static const IPAddress IROB_STA_LOCAL_IP(192, 168, 1, 68);
 static const IPAddress IROB_STA_GATEWAY(192, 168, 1, 1);
 static const IPAddress IROB_STA_SUBNET(255, 255, 255, 0);
 
 // UDP destination.
-// 192.168.1.255 is the subnet broadcast address, so any ROS2 computer on this link can receive.
+// 192.168.1.255 broadcasts to every device on the 192.168.1.x WiFi network.
 static const IPAddress ROS2_NODE_IP(192, 168, 1, 255);
 static const uint16_t IROB_UDP_PORT = 6767;
 
 // Send period in milliseconds. 10 ms gives a 100 Hz feedback stream.
 static const uint32_t IROB_SEND_PERIOD_MS = 10;
+
+// Motor feedback is calculated at the same 100 Hz rate as the UDP feedback stream.
+static const uint16_t IROB_MOTOR_FREQ_HZ = 100;
+static const uint16_t IROB_ENCODER_CPR = 68;
+static const uint16_t IROB_GEAR_RATIO = 27;
+
+// MPU6050 I2C pins. Change these two constants if your board uses different wiring.
+static const uint8_t IROB_MPU6050_SDA_PIN = 22;
+static const uint8_t IROB_MPU6050_SCL_PIN = 23;
+static const uint16_t IROB_MPU6050_FREQ_HZ = 100;
 
 // Exact 32-byte feedback packet sent from ESP32 to ROS2.
 // __attribute__((packed)) prevents the compiler from adding padding bytes.
@@ -83,8 +91,26 @@ static_assert(sizeof(irob_ros_packet_t) == 32, "iROB ROS packet must be 32 bytes
 WiFiUDP udp;
 irob_ros_packet_t txPacket;
 
+// Robot hardware objects from the existing project libraries.
+iROB_Motor iROB(IROB_MOTOR_FREQ_HZ, IROB_ENCODER_CPR, IROB_GEAR_RATIO);
+MPU6050 mpu;
+
 // Timestamp used to keep the send loop at IROB_SEND_PERIOD_MS.
 uint32_t lastSendMs = 0;
+
+// Clamp float RPM feedback to the int16 field used by the original packet.
+int16_t floatToInt16(float value)
+{
+  if (value > 32767.0f) {
+    return 32767;
+  }
+
+  if (value < -32768.0f) {
+    return -32768;
+  }
+
+  return (int16_t)value;
+}
 
 // Calculate the simple XOR checksum used by this WiFi protocol.
 uint8_t checksumXor(const irob_ros_packet_t &packet)
@@ -104,6 +130,15 @@ uint8_t checksumXor(const irob_ros_packet_t &packet)
 // Replace the zero assignments here with real encoder and IMU values from the robot.
 void fillRobotData(irob_ros_packet_t &packet)
 {
+  // Refresh encoder RPM and MPU6050 raw data before filling the packet.
+  const int16_t rpmLF = floatToInt16(iROB.getRPM(_LF));
+  const int16_t rpmLB = floatToInt16(iROB.getRPM(_LB));
+  const int16_t rpmRF = floatToInt16(iROB.getRPM(_RF));
+  const int16_t rpmRB = floatToInt16(iROB.getRPM(_RB));
+
+  mpu.MPU_get_gyro();
+  mpu.MPU_get_Accelerometer();
+
   // Packet marker expected by the ROS2 receiver.
   packet.ajbHeader[0] = 'J';
   packet.ajbHeader[1] = 'B';
@@ -111,59 +146,50 @@ void fillRobotData(irob_ros_packet_t &packet)
   // Current MCU status or command response.
   packet.cmdDataMCU = 0x00;
 
-  // TODO: connect these fields to real motor RPM/encoder feedback.
-  packet.motorFeedBack.motor1_fb = 0;  // LF
-  packet.motorFeedBack.motor2_fb = 0;  // LB
-  packet.motorFeedBack.motor3_fb = 0;  // RB
-  packet.motorFeedBack.motor4_fb = 0;  // RF
+  // Motor feedback uses the app_ros_comm.ino packet order: LF, LB, RB, RF.
+  packet.motorFeedBack.motor1_fb = rpmLF;
+  packet.motorFeedBack.motor2_fb = rpmLB;
+  packet.motorFeedBack.motor3_fb = rpmRB;
+  packet.motorFeedBack.motor4_fb = rpmRF;
 
   // TODO: connect these fields if mouse/optical-flow data is available.
   packet.mouseVel.mouse_x_vel = 0;
   packet.mouseVel.mouse_y_vel = 0;
 
-  // TODO: connect these fields to raw gyro readings.
-  packet.gyro_x_raw = 0;
-  packet.gyro_y_raw = 0;
-  packet.gyro_z_raw = 0;
+  // Raw gyro readings from MPU6050_E12.h.
+  packet.gyro_x_raw = mpu.mpuData.gx;
+  packet.gyro_y_raw = mpu.mpuData.gy;
+  packet.gyro_z_raw = mpu.mpuData.gz;
 
-  // TODO: connect these fields to raw magnetometer readings if the robot has one.
+  // MPU6050 has gyro + accelerometer only, so magnetometer fields stay zero.
   packet.mag_x_raw = 0;
   packet.mag_y_raw = 0;
   packet.mag_z_raw = 0;
 
-  // TODO: connect these fields to raw accelerometer readings.
-  packet.acc_x_raw = 0;
-  packet.acc_y_raw = 0;
-  packet.acc_z_raw = 0;
+  // Raw accelerometer readings from MPU6050_E12.h.
+  packet.acc_x_raw = mpu.mpuData.Ax;
+  packet.acc_y_raw = mpu.mpuData.Ay;
+  packet.acc_z_raw = mpu.mpuData.Az;
 
   // Checksum must be calculated after every data field has been filled.
   packet.cks = checksumXor(packet);
 }
 
-// Start WiFi and bind the local UDP port.
+// Join WiFi in STA mode and bind the local UDP port.
 void startWiFi()
 {
-  // Clear any previous WiFi state before switching AP/STA mode.
+  // Clear any previous WiFi state before joining the network.
   WiFi.disconnect(true, true);
   delay(100);
 
-#if IROB_WIFI_AP_MODE
-  // AP mode: the ESP32 creates the robot network itself.
-  WiFi.mode(WIFI_AP);
-  WiFi.softAPConfig(IROB_AP_IP, IROB_AP_GATEWAY, IROB_AP_SUBNET);
-  WiFi.softAP(IROB_WIFI_SSID, IROB_WIFI_PASSWORD);
-
-  Serial.print("iROB AP SSID: ");
-  Serial.println(IROB_WIFI_SSID);
-  Serial.print("iROB AP IP: ");
-  Serial.println(WiFi.softAPIP());
-#else
-  // Station mode: the ESP32 connects to an existing access point/router.
+  // STA mode only: the ESP32 joins the existing WiFi network.
   WiFi.mode(WIFI_STA);
+
 #if IROB_WIFI_USE_STATIC_STA_IP
-  // Optional static station address. Disabled by default to avoid IP conflicts.
+  // Optional static ESP32 address. Disabled by default to avoid IP conflicts.
   WiFi.config(IROB_STA_LOCAL_IP, IROB_STA_GATEWAY, IROB_STA_SUBNET);
 #endif
+
   WiFi.begin(IROB_WIFI_SSID, IROB_WIFI_PASSWORD);
 
   // Block here until the ESP32 is connected before sending UDP packets.
@@ -175,15 +201,27 @@ void startWiFi()
   Serial.println();
   Serial.print("ESP32 IP: ");
   Serial.println(WiFi.localIP());
-#endif
 
-  // Open a UDP socket. This also allows replies or diagnostics on the same port later.
+  // Open the UDP socket used to send robot feedback packets.
   udp.begin(IROB_UDP_PORT);
 
   Serial.print("Sending UDP packets to ");
   Serial.print(ROS2_NODE_IP);
   Serial.print(":");
   Serial.println(IROB_UDP_PORT);
+}
+
+// Initialize sensors and leave motor outputs stopped.
+void setupRobotHardware()
+{
+  iROB.Motor_DutyCycle_LF(0);
+  iROB.Motor_DutyCycle_LB(0);
+  iROB.Motor_DutyCycle_RF(0);
+  iROB.Motor_DutyCycle_RB(0);
+
+  Wire.begin(IROB_MPU6050_SDA_PIN, IROB_MPU6050_SCL_PIN);
+  mpu.freq_MPU6050 = IROB_MPU6050_FREQ_HZ;
+  mpu.MPU_init();
 }
 
 // Serialize and send one feedback packet to the ROS2 bridge node.
@@ -203,18 +241,19 @@ void setup()
   // Serial is only used for debug/status prints.
   Serial.begin(115200);
 
-  // Configure WiFi once at startup.
+  // Prepare encoder/motor pins and MPU6050 before networking starts.
+  setupRobotHardware();
+
+  // Join WiFi once at startup.
   startWiFi();
 }
 
 void loop()
 {
-#if !IROB_WIFI_AP_MODE
-  // Reconnect automatically when station mode loses WiFi.
+  // Reconnect automatically if the ESP32 drops off WiFi.
   if (WiFi.status() != WL_CONNECTED) {
     startWiFi();
   }
-#endif
 
   // Non-blocking 100 Hz send scheduler.
   const uint32_t now = millis();
