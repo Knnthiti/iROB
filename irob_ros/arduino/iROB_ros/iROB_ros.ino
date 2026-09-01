@@ -30,10 +30,29 @@ static const uint16_t IROB_UDP_PORT = 6767;
 // Send period in milliseconds. 10 ms gives a 100 Hz feedback stream.
 static const uint32_t IROB_SEND_PERIOD_MS = 10;
 
+// Stop motor targets if no ROS2 command packet arrives within this time.
+static const uint32_t IROB_COMMAND_TIMEOUT_MS = 500;
+
+// ROS2 -> ESP32 command packet size. This matches app_ros_comm.ino RX size.
+static const size_t IROB_COMMAND_PACKET_SIZE = 13;
+
+// Command register values compatible with the older serial protocol.
+static const uint8_t IROB_REG_NULL = 0x00;
+static const uint8_t IROB_REG_ESTOP = 0xAA;
+static const uint8_t IROB_STATUS_OK = 0x00;
+static const uint8_t IROB_STATUS_ESTOP = 0x55;
+
 // Motor feedback is calculated at the same 100 Hz rate as the UDP feedback stream.
 static const uint16_t IROB_MOTOR_FREQ_HZ = 100;
 static const uint16_t IROB_ENCODER_CPR = 68;
 static const uint16_t IROB_GEAR_RATIO = 27;
+
+// PID settings copied from the main iROB sketch.
+static const float IROB_PID_KP = 1.5f;
+static const float IROB_PID_KI = 0.01f;
+static const float IROB_PID_KD = 0.1f;
+static const float IROB_MIN_SPEED_RPM = 100.0f;
+static const float IROB_MAX_SPEED_RPM = 300.0f;
 
 // MPU6050 I2C pins. Change these two constants if your board uses different wiring.
 static const uint8_t IROB_MPU6050_SDA_PIN = 22;
@@ -96,6 +115,31 @@ MPU6050 mpu;
 // Timestamp used to keep the send loop at IROB_SEND_PERIOD_MS.
 uint32_t lastSendMs = 0;
 
+// Latest motor targets received from ROS2, stored in wheel names for readability.
+int16_t targetRpmLF = 0;
+int16_t targetRpmLB = 0;
+int16_t targetRpmRF = 0;
+int16_t targetRpmRB = 0;
+
+// Latest measured RPM values. These are sent back in irob_ros_packet_t.
+int16_t feedbackRpmLF = 0;
+int16_t feedbackRpmLB = 0;
+int16_t feedbackRpmRF = 0;
+int16_t feedbackRpmRB = 0;
+
+// MCU status byte that is reported back to ROS2 in cmdDataMCU.
+uint8_t mcuStatus = IROB_STATUS_OK;
+
+// Timestamp of the latest valid command packet from ROS2.
+uint32_t lastCommandMs = 0;
+
+// Read one little-endian int16 field from a received UDP command packet.
+int16_t readInt16LE(const uint8_t *bytes)
+{
+  const uint16_t value = (uint16_t)bytes[0] | ((uint16_t)bytes[1] << 8);
+  return (int16_t)value;
+}
+
 // Clamp float RPM feedback to the int16 field used by the original packet.
 int16_t floatToInt16(float value)
 {
@@ -108,6 +152,24 @@ int16_t floatToInt16(float value)
   }
 
   return (int16_t)value;
+}
+
+// Set every motor target to zero.
+void clearMotorTargets()
+{
+  targetRpmLF = 0;
+  targetRpmLB = 0;
+  targetRpmRF = 0;
+  targetRpmRB = 0;
+}
+
+// Immediately stop motor PWM outputs.
+void stopMotorOutputs()
+{
+  iROB.Motor_DutyCycle_LF(0);
+  iROB.Motor_DutyCycle_LB(0);
+  iROB.Motor_DutyCycle_RF(0);
+  iROB.Motor_DutyCycle_RB(0);
 }
 
 // Calculate the simple XOR checksum used by this WiFi protocol.
@@ -128,27 +190,18 @@ uint8_t checksumXor(const irob_ros_packet_t &packet)
 // Replace the zero assignments here with real encoder and IMU values from the robot.
 void fillRobotData(irob_ros_packet_t &packet)
 {
-  // Refresh encoder RPM and MPU6050 raw data before filling the packet.
-  const int16_t rpmLF = floatToInt16(iROB.getRPM(_LF));
-  const int16_t rpmLB = floatToInt16(iROB.getRPM(_LB));
-  const int16_t rpmRF = floatToInt16(iROB.getRPM(_RF));
-  const int16_t rpmRB = floatToInt16(iROB.getRPM(_RB));
-
-  mpu.MPU_get_gyro();
-  mpu.MPU_get_Accelerometer();
-
   // Packet marker expected by the ROS2 receiver.
   packet.ajbHeader[0] = 'J';
   packet.ajbHeader[1] = 'B';
 
   // Current MCU status or command response.
-  packet.cmdDataMCU = 0x00;
+  packet.cmdDataMCU = mcuStatus;
 
   // Motor feedback uses the app_ros_comm.ino packet order: LF, LB, RB, RF.
-  packet.motorFeedBack.motor1_fb = rpmLF;
-  packet.motorFeedBack.motor2_fb = rpmLB;
-  packet.motorFeedBack.motor3_fb = rpmRB;
-  packet.motorFeedBack.motor4_fb = rpmRF;
+  packet.motorFeedBack.motor1_fb = feedbackRpmLF;
+  packet.motorFeedBack.motor2_fb = feedbackRpmLB;
+  packet.motorFeedBack.motor3_fb = feedbackRpmRB;
+  packet.motorFeedBack.motor4_fb = feedbackRpmRF;
 
   // TODO: connect these fields if mouse/optical-flow data is available.
   packet.mouseVel.mouse_x_vel = 0;
@@ -171,6 +224,79 @@ void fillRobotData(irob_ros_packet_t &packet)
 
   // Checksum must be calculated after every data field has been filled.
   packet.cks = checksumXor(packet);
+}
+
+// Process one valid 13-byte command packet from ROS2.
+void applyCommandPacket(const uint8_t *packet)
+{
+  if (packet[0] != 'R' || packet[1] != 'B') {
+    return;
+  }
+
+  const uint8_t reg = packet[2];
+  lastCommandMs = millis();
+
+  if (reg == IROB_REG_ESTOP) {
+    mcuStatus = IROB_STATUS_ESTOP;
+    clearMotorTargets();
+    stopMotorOutputs();
+    return;
+  }
+
+  mcuStatus = IROB_STATUS_OK;
+
+  // Command packet order is LF, LB, RB, RF.
+  targetRpmLF = readInt16LE(&packet[4]);
+  targetRpmLB = readInt16LE(&packet[6]);
+  targetRpmRB = readInt16LE(&packet[8]);
+  targetRpmRF = readInt16LE(&packet[10]);
+}
+
+// Read all pending UDP command packets from ROS2.
+void receiveCommandFromRos()
+{
+  int packetSize = udp.parsePacket();
+
+  while (packetSize > 0) {
+    uint8_t packet[IROB_COMMAND_PACKET_SIZE] = { 0 };
+    const int readLength = udp.read(packet, sizeof(packet));
+
+    while (udp.available() > 0) {
+      udp.read();
+    }
+
+    if (packetSize == (int)IROB_COMMAND_PACKET_SIZE &&
+        readLength == (int)IROB_COMMAND_PACKET_SIZE) {
+      applyCommandPacket(packet);
+    }
+
+    packetSize = udp.parsePacket();
+  }
+}
+
+// Stop the robot if ROS2 control data is lost.
+void applyCommandTimeout()
+{
+  if ((uint32_t)(millis() - lastCommandMs) > IROB_COMMAND_TIMEOUT_MS) {
+    clearMotorTargets();
+  }
+}
+
+// Read sensors, update motor PID, and cache feedback data for the next packet.
+void updateRobotHardware()
+{
+  feedbackRpmLF = floatToInt16(iROB.getRPM(_LF));
+  feedbackRpmLB = floatToInt16(iROB.getRPM(_LB));
+  feedbackRpmRF = floatToInt16(iROB.getRPM(_RF));
+  feedbackRpmRB = floatToInt16(iROB.getRPM(_RB));
+
+  iROB.Motor_Speed_LF(targetRpmLF, feedbackRpmLF);
+  iROB.Motor_Speed_LB(targetRpmLB, feedbackRpmLB);
+  iROB.Motor_Speed_RF(targetRpmRF, feedbackRpmRF);
+  iROB.Motor_Speed_RB(targetRpmRB, feedbackRpmRB);
+
+  mpu.MPU_get_gyro();
+  mpu.MPU_get_Accelerometer();
 }
 
 // Join WiFi in STA mode and bind the local UDP port.
@@ -201,6 +327,7 @@ void startWiFi()
   Serial.println(WiFi.localIP());
 
   // Open the UDP socket used to send robot feedback packets.
+  udp.stop();
   udp.begin(IROB_UDP_PORT);
 
   Serial.print("Sending UDP packets to ");
@@ -212,10 +339,13 @@ void startWiFi()
 // Initialize sensors and leave motor outputs stopped.
 void setupRobotHardware()
 {
-  iROB.Motor_DutyCycle_LF(0);
-  iROB.Motor_DutyCycle_LB(0);
-  iROB.Motor_DutyCycle_RF(0);
-  iROB.Motor_DutyCycle_RB(0);
+  iROB.Setup_PID_Wheel(IROB_PID_KP, IROB_PID_KI, IROB_PID_KD, IROB_MIN_SPEED_RPM, IROB_MAX_SPEED_RPM, _LF);
+  iROB.Setup_PID_Wheel(IROB_PID_KP, IROB_PID_KI, IROB_PID_KD, IROB_MIN_SPEED_RPM, IROB_MAX_SPEED_RPM, _LB);
+  iROB.Setup_PID_Wheel(IROB_PID_KP, IROB_PID_KI, IROB_PID_KD, IROB_MIN_SPEED_RPM, IROB_MAX_SPEED_RPM, _RF);
+  iROB.Setup_PID_Wheel(IROB_PID_KP, IROB_PID_KI, IROB_PID_KD, IROB_MIN_SPEED_RPM, IROB_MAX_SPEED_RPM, _RB);
+
+  clearMotorTargets();
+  stopMotorOutputs();
 
   Wire.begin(IROB_MPU6050_SDA_PIN, IROB_MPU6050_SCL_PIN);
   mpu.freq_MPU6050 = IROB_MPU6050_FREQ_HZ;
@@ -250,13 +380,19 @@ void loop()
 {
   // Reconnect automatically if the ESP32 drops off WiFi.
   if (WiFi.status() != WL_CONNECTED) {
+    clearMotorTargets();
+    stopMotorOutputs();
     startWiFi();
   }
+
+  receiveCommandFromRos();
 
   // Non-blocking 100 Hz send scheduler.
   const uint32_t now = millis();
   if ((uint32_t)(now - lastSendMs) >= IROB_SEND_PERIOD_MS) {
     lastSendMs = now;
+    applyCommandTimeout();
+    updateRobotHardware();
     sendPacketToRos();
   }
 }

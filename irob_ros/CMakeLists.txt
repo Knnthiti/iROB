@@ -10,9 +10,11 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(rcl REQUIRED)
+find_package(rmw REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/IROBCommand.msg"
   "msg/IROBController.msg"
 )
 
@@ -20,11 +22,18 @@ add_executable(iROB_ESP src/iROB_ESP.c)
 add_dependencies(iROB_ESP ${PROJECT_NAME}__rosidl_generator_c)
 ament_target_dependencies(iROB_ESP rcl)
 
+add_executable(iROB_CMD src/iROB_CMD.c)
+add_dependencies(iROB_CMD ${PROJECT_NAME}__rosidl_generator_c)
+ament_target_dependencies(iROB_CMD rcl rmw)
+
 rosidl_get_typesupport_target(c_typesupport_target
   ${PROJECT_NAME} "rosidl_typesupport_c")
 target_link_libraries(iROB_ESP "${c_typesupport_target}")
+target_link_libraries(iROB_CMD "${c_typesupport_target}")
 
-install(TARGETS iROB_ESP
+install(TARGETS
+  iROB_ESP
+  iROB_CMD
   DESTINATION lib/${PROJECT_NAME}
 )
 

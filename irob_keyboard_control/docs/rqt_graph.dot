@@ -1,0 +1,21 @@
+digraph irob_ros_graph {
+  rankdir=LR;
+  graph [label="Expected iROB ROS2 graph", labelloc=t, fontsize=18];
+  node [fontname="Arial", fontsize=11];
+  edge [fontname="Arial", fontsize=10];
+
+  keyboard [shape=ellipse, label="/iROB_keyboard\nirob_keyboard"];
+  command_topic [shape=box, label="/iROB_command\nirob_ros/msg/IROBCommand"];
+  command_bridge [shape=ellipse, label="/iROB_command_bridge\niROB_CMD"];
+  esp32 [shape=component, label="ESP32 iROB\niROB_ros.ino"];
+  feedback_bridge [shape=ellipse, label="/iROB_feedback_bridge\niROB_ESP"];
+  feedback_topic [shape=box, label="/iROB_controller\nirob_ros/msg/IROBController"];
+  rqt [shape=ellipse, label="/rqt_graph\nmonitor"];
+
+  keyboard -> command_topic [label="publish"];
+  command_topic -> command_bridge [label="subscribe"];
+  command_bridge -> esp32 [label="UDP 13 bytes"];
+  esp32 -> feedback_bridge [label="UDP 32 bytes"];
+  feedback_bridge -> feedback_topic [label="publish"];
+  feedback_topic -> rqt [label="view/debug"];
+}
