@@ -1,5 +1,56 @@
 # iROB ESP32 Robot
 
+## RQT Graph สำหรับ ROS2 ESP32 Control
+
+ภาพรวม node/topic ที่ควรเห็นเมื่อรัน launch file ของ package `irob_keyboard_control`:
+
+```text
+  /iROB_keyboard
+  irob_keyboard
+        |
+        | publish /iROB_command
+        | type: irob_ros/msg/IROBCommand
+        v
+  /iROB_command_bridge
+  iROB_CMD
+        |
+        | UDP command packet 13 bytes
+        | RB + reg + ctk + motor1..motor4 + cmdDataPC
+        v
+  ESP32 iROB
+  iROB_ros.ino
+        |
+        | UDP feedback packet 32 bytes
+        | JB + motor feedback + IMU + checksum
+        v
+  /iROB_feedback_bridge
+  iROB_ESP
+        |
+        | publish /iROB_controller
+        | type: irob_ros/msg/IROBController
+        v
+  ROS2 tools / rqt_graph / topic echo
+```
+
+เปิดใช้งานพร้อม rqt graph:
+
+```bash
+ros2 launch irob_keyboard_control keyboard_control.launch.py esp32_ip:=192.168.1.100 start_rqt_graph:=true
+```
+
+หรือเปิดเฉพาะ graph หลังจากรัน node แล้ว:
+
+```bash
+rqt_graph
+```
+
+ใน `rqt_graph` จะเห็นเส้นหลักประมาณนี้:
+
+```text
+/iROB_keyboard -> /iROB_command -> /iROB_command_bridge -> ESP32
+ESP32 -> /iROB_feedback_bridge -> /iROB_controller
+```
+
 โปรเจกต์นี้เป็นโค้ดควบคุมหุ่นยนต์ล้อ mecanum 4 ล้อบน ESP32 โดยแยก library ไว้ใน `Inc/` และ `Src/` และมี sketch ตัวอย่างอยู่ใน `Project/`
 
 ## โครงสร้างโปรเจกต์
