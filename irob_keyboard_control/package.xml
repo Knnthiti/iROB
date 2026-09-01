@@ -6,18 +6,26 @@
   <maintainer email="irob@example.com">iROB Team</maintainer>
   <license>MIT</license>
 
+  <!-- ใช้ ament_python เพราะ node keyboard เขียนด้วย Python -->
   <buildtool_depend>ament_python</buildtool_depend>
 
+  <!-- package นี้ใช้ message จาก irob_ros และรันร่วมกับ bridge node ของ irob_ros -->
   <exec_depend>irob_ros</exec_depend>
+
+  <!-- dependency สำหรับ launch file และ node Python -->
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>rclpy</exec_depend>
+
+  <!-- ใช้เปิด graph ของ ROS2 node/topic ตอน debug -->
   <exec_depend>rqt_graph</exec_depend>
 
+  <!-- dependency สำหรับ lint/test ตอนพัฒนา package -->
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
 
   <export>
+    <!-- แจ้ง colcon ว่า package นี้เป็น ament_python -->
     <build_type>ament_python</build_type>
   </export>
 </package>

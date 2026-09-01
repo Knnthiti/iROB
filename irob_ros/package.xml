@@ -6,13 +6,17 @@
   <maintainer email="irob@example.com">iROB Team</maintainer>
   <license>MIT</license>
 
+  <!-- ใช้ ament_cmake เพราะ package นี้ build node ภาษา C และ generate .msg -->
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <!-- dependency สำหรับ ROS2 C client library -->
   <depend>rcl</depend>
   <depend>rmw</depend>
 
+  <!-- dependency สำหรับ generate message จากไฟล์ msg/*.msg -->
   <build_depend>rosidl_default_generators</build_depend>
   <exec_depend>rosidl_default_runtime</exec_depend>
 
+  <!-- ต้องใส่เมื่อ package นี้ประกาศ ROS2 interface ของตัวเอง -->
   <member_of_group>rosidl_interface_packages</member_of_group>
 </package>

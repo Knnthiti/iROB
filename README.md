@@ -2,7 +2,8 @@
 
 ## RQT Graph สำหรับ ROS2 ESP32 Control
 
-ภาพรวม node/topic ที่ควรเห็นเมื่อรัน launch file ของ package `irob_keyboard_control`:
+ภาพรวม node/topic ที่ควรเห็นเมื่อรัน launch file ของ package `irob_keyboard_control`
+โดยให้มุมมองของระบบเป็น ROS2 เท่านั้น:
 
 ```text
   /iROB_keyboard
@@ -13,16 +14,7 @@
         v
   /iROB_command_bridge
   iROB_CMD
-        |
-        | UDP command packet 13 bytes
-        | RB + reg + ctk + motor1..motor4 + cmdDataPC
-        v
-  ESP32 iROB
-  iROB_ros.ino
-        |
-        | UDP feedback packet 32 bytes
-        | JB + motor feedback + IMU + checksum
-        v
+
   /iROB_feedback_bridge
   iROB_ESP
         |
@@ -47,9 +39,11 @@ rqt_graph
 ใน `rqt_graph` จะเห็นเส้นหลักประมาณนี้:
 
 ```text
-/iROB_keyboard -> /iROB_command -> /iROB_command_bridge -> ESP32
-ESP32 -> /iROB_feedback_bridge -> /iROB_controller
+/iROB_keyboard -> /iROB_command -> /iROB_command_bridge
+/iROB_feedback_bridge -> /iROB_controller
 ```
+
+หมายเหตุ: `rqt_graph` แสดงเฉพาะ ROS2 node/topic จึงไม่แสดง ESP32 หรือ protocol ภายนอกเป็น node ใน graph
 
 โปรเจกต์นี้เป็นโค้ดควบคุมหุ่นยนต์ล้อ mecanum 4 ล้อบน ESP32 โดยแยก library ไว้ใน `Inc/` และ `Src/` และมี sketch ตัวอย่างอยู่ใน `Project/`
 

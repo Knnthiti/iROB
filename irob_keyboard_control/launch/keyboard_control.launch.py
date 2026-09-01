@@ -7,6 +7,7 @@ from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
+    # LaunchConfiguration คือค่าที่ผู้ใช้ส่งเข้ามาจากคำสั่ง ros2 launch
     esp32_ip = LaunchConfiguration("esp32_ip")
     udp_port = LaunchConfiguration("udp_port")
     speed_rpm = LaunchConfiguration("speed_rpm")
@@ -16,41 +17,49 @@ def generate_launch_description():
     start_rqt_graph = LaunchConfiguration("start_rqt_graph")
 
     return LaunchDescription([
+        # IP ของ ESP32 ดูได้จาก Serial Monitor หลังจาก ESP32 join WiFi สำเร็จ
         DeclareLaunchArgument(
             "esp32_ip",
             default_value="192.168.1.100",
-            description="ESP32 IP address shown in Arduino Serial Monitor.",
+            description="IP ของ ESP32 ที่เห็นจาก Arduino Serial Monitor",
         ),
+        # UDP port ต้องตรงกับ IROB_UDP_PORT ใน iROB_ros.ino
         DeclareLaunchArgument(
             "udp_port",
             default_value="6767",
-            description="UDP port used by ESP32 and ROS2 bridge nodes.",
+            description="UDP port ที่ ESP32 และ ROS2 bridge ใช้ร่วมกัน",
         ),
+        # ความเร็วพื้นฐานสำหรับ W/S/A/D
         DeclareLaunchArgument(
             "speed_rpm",
             default_value="100",
-            description="Default translation speed in motor RPM.",
+            description="ความเร็วพื้นฐานของการเคลื่อนที่ หน่วย RPM",
         ),
+        # ความเร็วพื้นฐานสำหรับ Q/E
         DeclareLaunchArgument(
             "turn_rpm",
             default_value="100",
-            description="Default rotation speed in motor RPM.",
+            description="ความเร็วพื้นฐานของการหมุน หน่วย RPM",
         ),
+        # ความถี่ publish /iROB_command ควรเร็วกว่าค่า timeout บน ESP32
         DeclareLaunchArgument(
             "publish_rate_hz",
             default_value="20.0",
-            description="Keyboard command publish rate.",
+            description="ความถี่ publish คำสั่ง keyboard",
         ),
+        # เปิด/ปิด node รับ feedback จาก ESP32
         DeclareLaunchArgument(
             "start_feedback",
             default_value="true",
-            description="Start the ESP32 feedback receiver node.",
+            description="เริ่ม node รับ feedback จาก ESP32",
         ),
+        # เปิด rqt_graph พร้อมระบบควบคุม ถ้าต้องการดู graph ทันที
         DeclareLaunchArgument(
             "start_rqt_graph",
             default_value="false",
-            description="Open rqt_graph together with the control nodes.",
+            description="เปิด rqt_graph พร้อม node ควบคุม",
         ),
+        # iROB_ESP รับ feedback จาก ESP32 แล้ว publish /iROB_controller
         Node(
             package="irob_ros",
             executable="iROB_ESP",
@@ -59,6 +68,7 @@ def generate_launch_description():
             condition=IfCondition(start_feedback),
             arguments=["--port", udp_port],
         ),
+        # iROB_CMD subscribe /iROB_command แล้วส่งคำสั่งไป ESP32
         Node(
             package="irob_ros",
             executable="iROB_CMD",
@@ -66,6 +76,7 @@ def generate_launch_description():
             output="screen",
             arguments=["--esp32-ip", esp32_ip, "--port", udp_port],
         ),
+        # iROB_keyboard อ่านปุ่ม keyboard แล้ว publish /iROB_command ต่อเนื่อง
         Node(
             package="irob_keyboard_control",
             executable="irob_keyboard",
@@ -78,6 +89,7 @@ def generate_launch_description():
                 "publish_rate_hz": ParameterValue(publish_rate_hz, value_type=float),
             }],
         ),
+        # rqt_graph ใช้ดู ROS2 node/topic เฉพาะตอน start_rqt_graph:=true
         Node(
             package="rqt_graph",
             executable="rqt_graph",
